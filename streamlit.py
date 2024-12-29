@@ -142,5 +142,6 @@ def main():
     # Prediksi harga rumah berdasarkan input pengguna
     predict_house_price(svr, scaler)
 
-if _name_ == '_main_':
+if __name__ == '__main__':
     main()
+
