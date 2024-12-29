@@ -8,97 +8,139 @@ from sklearn.svm import SVR
 from sklearn.preprocessing import StandardScaler
 from sklearn.metrics import mean_squared_error, r2_score
 
-# Function to load data
-def load_data(file_path):
-    return pd.read_csv(file_path)
+# Menghubungkan Google Drive dan membaca file CSV
+def load_data():
+    df = pd.read_csv('/content/drive/MyDrive/Project Pembelajaran Mesin/Salinan kc_house_data.csv', 
+                     usecols=['bedrooms', 'bathrooms', 'sqft_living', 'grade', 'price', 'yr_built'])
+    return df
 
-# Load the dataset
-st.title("House Price Prediction App")
+# Fungsi untuk Menampilkan Statistical Info
+def display_statistics(df):
+    st.subheader('Statistical Description')
+    st.write(df.describe())
+    st.subheader('Missing Values')
+    st.write(df.isnull().sum())
 
-uploaded_file = st.file_uploader("Upload your CSV file", type="csv")
+# Fungsi untuk Menampilkan Visualisasi
+def display_plots(df):
+    st.subheader('Visualisasi Data')
+    st.write("Distribusi dari Bedrooms")
+    fig, axes = plt.subplots(1, 2, figsize=(12, 4))
+    sns.countplot(df['bedrooms'], ax=axes[0])
+    axes[1].boxplot(df['bedrooms'])
+    st.pyplot(fig)
 
-if uploaded_file is not None:
-    df = load_data(uploaded_file)
-    st.write("### Dataset Preview")
-    st.dataframe(df.head())
+    st.write("Distribusi dari Sqft Living")
+    fig, axes = plt.subplots(1, 2, figsize=(12, 4))
+    df['sqft_living'].plot(kind='kde', ax=axes[0])
+    axes[1].boxplot(df['sqft_living'])
+    st.pyplot(fig)
 
-    # Select features and target
-    if set(['bedrooms', 'bathrooms', 'sqft_living', 'grade', 'price', 'yr_built']).issubset(df.columns):
-        df = df[['bedrooms', 'bathrooms', 'sqft_living', 'grade', 'price', 'yr_built']]
+    st.write("Distribusi dari Grade")
+    fig, axes = plt.subplots(1, 2, figsize=(12, 4))
+    sns.countplot(df['grade'], ax=axes[0])
+    axes[1].boxplot(df['grade'])
+    st.pyplot(fig)
 
-        # Display basic statistics
-        st.write("### Dataset Info")
-        st.write(df.describe())
+    st.write("Distribusi dari Year Built")
+    fig, axes = plt.subplots(1, 2, figsize=(20, 8))
+    sns.countplot(df['yr_built'], ax=axes[0])
+    axes[1].boxplot(df['yr_built'])
+    st.pyplot(fig)
 
-        # Handle missing values
-        df = df.fillna(df.mean())
+# Fungsi untuk Melatih dan Memprediksi Menggunakan Model Linear Regresi
+def linear_regression_model(df):
+    st.subheader('Linear Regression Model')
+    
+    # Menyiapkan data untuk pelatihan
+    x = df.drop(columns='price')
+    y = df['price']
+    x_train, x_test, y_train, y_test = train_test_split(x, y, test_size=0.2, random_state=4)
+    
+    # Training model Linear Regression
+    lin_reg = LinearRegression()
+    lin_reg.fit(x_train, y_train)
 
-        # Data Visualization
-        st.write("### Data Visualization")
-        f, axes = plt.subplots(2, 3, figsize=(15, 10))
-        sns.histplot(df['bedrooms'], kde=True, ax=axes[0, 0])
-        axes[0, 0].set_title('Distribution of Bedrooms')
-        sns.histplot(df['bathrooms'], kde=True, ax=axes[0, 1])
-        axes[0, 1].set_title('Distribution of Bathrooms')
-        sns.histplot(df['sqft_living'], kde=True, ax=axes[0, 2])
-        axes[0, 2].set_title('Distribution of Sqft Living')
-        sns.histplot(df['grade'], kde=True, ax=axes[1, 0])
-        axes[1, 0].set_title('Distribution of Grade')
-        sns.histplot(df['yr_built'], kde=True, ax=axes[1, 1])
-        axes[1, 1].set_title('Distribution of Year Built')
-        plt.tight_layout()
-        st.pyplot(f)
+    # Menampilkan koefisien dan intercept
+    st.write("Koefisien Linear Regression", lin_reg.coef_)
+    st.write("Intercept Linear Regression", lin_reg.intercept_)
 
-        # Correlation heatmap
-        st.write("### Correlation Heatmap")
-        plt.figure(figsize=(10, 6))
-        sns.heatmap(df.corr(), annot=True, fmt='.2f', cmap='coolwarm')
-        st.pyplot(plt)
+    # Menghitung akurasi
+    score = lin_reg.score(x_test, y_test)
+    st.write(f"Akurasi model Linear Regression: {score:.2f}")
 
-        # Split data
-        X = df.drop(columns='price')
-        y = df['price']
-        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+# Fungsi untuk Melatih dan Memprediksi Menggunakan SVR
+def svr_model(df):
+    st.subheader('SVR Model')
+    
+    x = df.drop(columns='price')
+    y = df['price']
+    x_train, x_test, y_train, y_test = train_test_split(x, y, test_size=0.2, random_state=4)
 
-        # Linear Regression
-        lin_reg = LinearRegression()
-        lin_reg.fit(X_train, y_train)
-        y_pred_lr = lin_reg.predict(X_test)
+    # Menangani data yang hilang
+    x_train = x_train.fillna(x_train.mean())
+    x_test = x_test.fillna(x_test.mean())
 
-        # Linear Regression Metrics
-        st.write("### Linear Regression Results")
-        st.write("R² Score:", r2_score(y_test, y_pred_lr))
-        st.write("Mean Squared Error (MSE):", mean_squared_error(y_test, y_pred_lr))
+    # Standarisasi data
+    scaler = StandardScaler()
+    x_train_scaled = scaler.fit_transform(x_train)
+    x_test_scaled = scaler.transform(x_test)
 
-        # SVR
-        scaler = StandardScaler()
-        X_train_scaled = scaler.fit_transform(X_train)
-        X_test_scaled = scaler.transform(X_test)
+    # Melatih model SVR
+    svr = SVR(kernel='rbf', C=100, epsilon=0.1)
+    svr.fit(x_train_scaled, y_train)
 
-        svr = SVR(kernel='rbf', C=100, epsilon=0.1)
-        svr.fit(X_train_scaled, y_train)
-        y_pred_svr = svr.predict(X_test_scaled)
+    # Evaluasi model
+    y_pred = svr.predict(x_test_scaled)
+    mse = mean_squared_error(y_test, y_pred)
+    r2 = r2_score(y_test, y_pred)
+    st.write(f"Mean Squared Error (MSE): {mse:.2f}")
+    st.write(f"R² Score: {r2:.2f}")
+    
+    return svr, scaler
 
-        # SVR Metrics
-        st.write("### Support Vector Regression Results")
-        st.write("R² Score:", r2_score(y_test, y_pred_svr))
-        st.write("Mean Squared Error (MSE):", mean_squared_error(y_test, y_pred_svr))
+# Fungsi untuk Prediksi Harga Rumah berdasarkan Input Pengguna
+def predict_house_price(svr, scaler):
+    st.subheader('Prediksi Harga Rumah')
+    
+    # Mengambil input dari pengguna
+    bedrooms = st.number_input('Jumlah Kamar Tidur', min_value=1, max_value=10, value=3)
+    bathrooms = st.number_input('Jumlah Kamar Mandi', min_value=1, max_value=10, value=2)
+    sqft_living = st.number_input('Luas Rumah (sqft)', min_value=500, max_value=10000, value=2000)
+    grade = st.number_input('Grade Rumah', min_value=1, max_value=13, value=7)
+    yr_built = st.number_input('Tahun Dibangun', min_value=1900, max_value=2024, value=1990)
 
-        # Predict for a new house
-        st.write("### Predict House Price")
-        bedrooms = st.number_input("Bedrooms", min_value=0, max_value=10, value=3)
-        bathrooms = st.number_input("Bathrooms", min_value=0, max_value=10, value=2)
-        sqft_living = st.number_input("Sqft Living", min_value=500, max_value=10000, value=1800)
-        grade = st.number_input("Grade", min_value=1, max_value=10, value=7)
-        yr_built = st.number_input("Year Built", min_value=1900, max_value=2022, value=1990)
+    # Input rumah Joko
+    user_input = [[bedrooms, bathrooms, sqft_living, grade, yr_built]]
+    
+    # Standarisasi input pengguna
+    user_input_scaled = scaler.transform(user_input)
+    
+    # Prediksi harga rumah
+    predicted_price = svr.predict(user_input_scaled)
+    st.write(f"Prediksi Harga Rumah: ${predicted_price[0]:,.2f}")
 
-        input_data = [[bedrooms, bathrooms, sqft_living, grade, yr_built]]
-        input_scaled = scaler.transform(input_data)
+# UI Streamlit
+def main():
+    st.title('Prediksi Harga Rumah dengan Mesin Pembelajaran')
 
-        predicted_price_lr = lin_reg.predict(input_data)
-        predicted_price_svr = svr.predict(input_scaled)
+    # Muat data
+    df = load_data()
 
-        st.write("#### Predicted Price (Linear Regression):", predicted_price_lr[0])
-        st.write("#### Predicted Price (SVR):", predicted_price_svr[0])
-    else:
-        st.error("Dataset must contain columns: 'bedrooms', 'bathrooms', 'sqft_living', 'grade', 'price', and 'yr_built'.")
+    # Menampilkan data dan informasi
+    display_statistics(df)
+
+    # Menampilkan visualisasi
+    display_plots(df)
+
+    # Model Linear Regression
+    linear_regression_model(df)
+
+    # Model SVR
+    svr, scaler = svr_model(df)
+
+    # Prediksi harga rumah berdasarkan input pengguna
+    predict_house_price(svr, scaler)
+
+if _name_ == '_main_':
+    main()
